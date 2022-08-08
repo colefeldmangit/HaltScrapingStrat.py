@@ -1,0 +1,4 @@
+pandas
+ib_insync
+numpy
+feedparser
