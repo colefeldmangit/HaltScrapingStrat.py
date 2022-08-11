@@ -7,44 +7,42 @@ import numpy as np
 import time
 from HaltRSS import RSS
 
+
 ib = IB()
-rss = RSS(True)
-
-def onError(reqId, errorCode, errorString, contract):
-    if errorCode == 200:
-        rss.remove_halt(contract.symbol)
-
-
-
-ib.errorEvent += onError
+rss = RSS(ib, True)
 ib.connect('127.0.0.1', 7496, clientId=1)
+market_data_df = pd.DataFrame(columns = ['time','last', 'halted'], index = ['symbol'])
+print(market_data_df)
 
+def onPendingTicker(tickers):
+    for t in tickers:
+        #market_data_df.loc[t.contract.symbol] = [t.time, t.last, t.halted]
+        if t.last != rss.halts_current.loc[str(t.contract.symbol)]['halt_price']:
+            print(str(t.contract.symbol) + " unhalted")
+            #TODO: write strategy inside here I guess
 
 if __name__ == "__main__":
     # updates the halt list and adds to the processed halts
     rss.fetch_halts()
-    for i in rss.halts_current.iterrows():
-        # print(i[1]): attributes of halt
-        symbol = i[1]['symbol']
-        time = i[1]['time']
-        stock = Stock(symbol, 'SMART', 'USD')
-        bars = ib.reqHistoricalData(
-            stock, endDateTime='', durationStr='1 D',
-            barSizeSetting='1 min', whatToShow='TRADES', useRTH=True)
-        try:
-            df = util.df(bars).set_index('date')
-            # grabs volume for 5 mins leading up to halt time
-            prev_min_volume = df['volume'].loc[
-                              time - datetime.timedelta(minutes=4):time + datetime.timedelta(minutes=1)].sum()
-            # if last 5 mins of volume has been less than n*100 shares
-            if prev_min_volume < 100 or time < datetime.datetime.now()-datetime.timedelta(minutes = 5):
-                rss.remove_halt(symbol)
-        #TODO: add the except statement for the empty dataframe, record the halt price
-        except AttributeError:
-            rss.remove_halt(symbol)
+    print(rss.halts_current)
+    rss.clean_halts_list()
+    print(rss.halts_current)
+    test1 = True
+    if rss.halts_current.empty:
+        time.sleep(60)
+    else:
+        stocks = [Stock(i, 'SMART', 'USD') for i in rss.halts_current.index]
+        for stock in stocks:
+            ib.reqMktData(stock, '', False, False)
+        ib.pendingTickersEvent += onPendingTicker
+        ib.run()
+
+        #ib.cancelMktData(stocks[0])
+
+
     #TODO: with halts remaining request the market data
 
-    #Halt Logic:
+    # Halt Logic:
     ''' Have halt dataframe containing all the of the last halt prices. onPendingTickers method called on every update,
     add logic to compare each update to the halt price. On a change check for a gap up, place bracket order, start minute timer'''
 
