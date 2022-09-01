@@ -20,9 +20,11 @@ class RSS:
         self.ib = ib_conn_
         self.halts_current = pd.DataFrame(columns=['reason', 'time', 'halt_price'], index = ['symbol'])
         self.test = test_
+        self.isRoundDone = False
 
     @func_timer
     def fetch_halts(self):
+        self.isRoundDone = False
         self.halts_current.dropna(inplace=True)
         if self.test:
             self.halts_current.loc['AAPL'] = ['LUDP',
@@ -95,3 +97,9 @@ class RSS:
     def remove_halt(self, symbol):
         print("Removing symbol {}".format(symbol))
         self.halts_current.drop(index = symbol, axis = 0, inplace = True)
+
+    def remove_all_halts(self):
+        self.halts_current = self.halts_current.iloc[0:0]
+        
+    def setRoundDone(self):
+        self.isRoundDone = True

@@ -7,6 +7,10 @@ import numpy as np
 import time
 from HaltRSS import RSS
 
+class NoHaltsLeftError(Exception):
+    """ Thrown when all halts in the RSS are taken care of"""
+    pass
+
 
 ib = IB()
 rss = RSS(ib, True)
@@ -20,6 +24,10 @@ def onPendingTicker(tickers):
         if t.last != rss.halts_current.loc[str(t.contract.symbol)]['halt_price']:
             print(str(t.contract.symbol) + " unhalted")
             #TODO: write strategy inside here I guess
+    if rss.isRoundDone:
+        raise NoHaltsLeftError
+    rss.setRoundDone()
+
 
 if __name__ == "__main__":
     # updates the halt list and adds to the processed halts
@@ -35,7 +43,11 @@ if __name__ == "__main__":
         for stock in stocks:
             ib.reqMktData(stock, '', False, False)
         ib.pendingTickersEvent += onPendingTicker
+    try:
         ib.run()
+    except NoHaltsLeftError:
+        ib.disconnect()
+
 
         #ib.cancelMktData(stocks[0])
 
